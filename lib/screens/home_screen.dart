@@ -334,6 +334,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               },
             ),
             
+            // Restablecer Enlaces por Defecto
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.restore, color: Colors.white, size: 20),
+              ),
+              title: const Text('Restablecer Enlaces por Defecto'),
+              subtitle: const Text('Restaurar todos los enlaces originales'),
+              onTap: () {
+                Navigator.pop(context);
+                _resetToDefaultShortcuts();
+              },
+            ),
+            
             const Divider(),
             
             // Salir del modo administrador
@@ -537,6 +557,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       const SnackBar(
         content: Text('🔒 Modo administrador desactivado'),
         backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  Future<void> _resetToDefaultShortcuts() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restablecer Enlaces por Defecto'),
+        content: const Text(
+          '¿Estás seguro de que quieres restablecer todos los enlaces a los valores por defecto?\n\n'
+          'Esta acción eliminará todos los enlaces personalizados y restaurará los enlaces originales de FIFCO.\n\n'
+          '⚠️ Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _dbHelper.resetToDefaultShortcuts();
+                await _loadData(); // Recargar datos
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Enlaces por defecto restablecidos'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('❌ Error: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Restablecer'),
+          ),
+        ],
       ),
     );
   }

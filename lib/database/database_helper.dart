@@ -50,6 +50,9 @@ class DatabaseHelper {
 
     // Insertar categorías por defecto
     await _insertDefaultCategories(db);
+    
+    // Insertar shortcuts por defecto
+    await _insertDefaultShortcuts(db);
   }
 
   Future<void> _insertDefaultCategories(Database db) async {
@@ -65,6 +68,70 @@ class DatabaseHelper {
 
     for (String category in defaultCategories) {
       await db.insert('categories', {'name': category});
+    }
+  }
+
+  Future<void> _insertDefaultShortcuts(Database db) async {
+    // Obtener las categorías para asignar los shortcuts
+    final categories = await db.query('categories');
+    
+    // Mapeo de nombres de categorías a IDs
+    final categoryMap = <String, int>{};
+    for (var category in categories) {
+      categoryMap[category['name'] as String] = category['id'] as int;
+    }
+
+    // Lista de shortcuts por defecto
+    final defaultShortcuts = [
+      {
+        'name': 'Incidencias',
+        'url': 'https://forms.office.com/Pages/ResponsePage.aspx?id=Y6S5GQ0RP0KXWJzTBYcEaYDu70xkywhMslL9GXJ1eX9UN1VNMUlQNEdYN1pETVE1MzZWR1QzQ0tPTiQlQCN0PWcu',
+        'category': 'Sistemas Internos',
+        'is_default': false,
+      },
+      {
+        'name': 'Reportes Preventivos',
+        'url': 'https://forms.office.com/Pages/ResponsePage.aspx?id=Y6S5GQ0RP0KXWJzTBYcEaeUZyy766PJPm3R17RbagC9UM1hYVTlBWVpCMFk4OEdUTlZVVjRaSFZUSSQlQCN0PWcu',
+        'category': 'Sistemas Internos',
+        'is_default': false,
+      },
+      {
+        'name': 'Muestreo de Envase',
+        'url': 'https://forms.office.com/pages/responsepage.aspx?id=Y6S5GQ0RP0KXWJzTBYcEaUa6rTODswZBikoR1jmc1adUOElZWUVONEZOTEo0SkJFN1IyMTYyM1M2MC4u&origin=lprLink&route=shorturl',
+        'category': 'Calidad',
+        'is_default': false,
+      },
+      {
+        'name': '10 Pasos',
+        'url': 'https://florida1.sharepoint.com/sites/Distribucinpas/_layouts/15/listforms.aspx?cid=NjJmMDI5NTctYzJlZi00YjIzLTgzYzgtNTVlZGM1NmU5ODA5&nav=MDQyNzFiN2UtOWI0ZC00YTFkLWFjZTItODAxODQ2YjU2ZjBk',
+        'category': 'Sistemas Internos',
+        'is_default': false,
+      },
+      {
+        'name': 'Lavado de Camiones',
+        'url': 'https://apps.powerapps.com/play/e/default-19b9a463-110d-423f-9758-9cd305870469/a/e930a865-c082-4ee5-8309-422f099ee24e?tenantId=19b9a463-110d-423f-9758-9cd305870469&hint=01fca6c4-a224-4cc1-99f8-200f0984968f&sourcetime=1718583516237&source=portal&skipMobileRedirect=1',
+        'category': 'Transporte',
+        'is_default': false,
+      },
+      {
+        'name': 'Actualizar OC Moderno',
+        'url': 'https://forms.office.com/pages/responsepage.aspx?id=Y6S5GQ0RP0KXWJzTBYcEafToAM31LeNLrDTTJ5DRcApUNTRXQVdONjVGV0pTUkJLSzlGTDRWSDRHSC4u',
+        'category': 'Sistemas Internos',
+        'is_default': false,
+      },
+    ];
+
+    // Insertar cada shortcut
+    for (var shortcut in defaultShortcuts) {
+      final categoryId = categoryMap[shortcut['category'] as String];
+      if (categoryId != null) {
+        await db.insert('shortcuts', {
+          'name': shortcut['name'] as String,
+          'url': shortcut['url'] as String,
+          'category_id': categoryId,
+          'is_default': (shortcut['is_default'] as bool) ? 1 : 0,
+        });
+      }
     }
   }
 
@@ -239,6 +306,17 @@ class DatabaseHelper {
       'total_categories': totalCategories,
       'has_default': defaultShortcut.isNotEmpty,
     };
+  }
+
+  // Método para restablecer shortcuts por defecto
+  Future<void> resetToDefaultShortcuts() async {
+    final db = await database;
+    
+    // Eliminar todos los shortcuts existentes
+    await db.delete('shortcuts');
+    
+    // Insertar los shortcuts por defecto nuevamente
+    await _insertDefaultShortcuts(db);
   }
 
   // Método para cerrar la base de datos
