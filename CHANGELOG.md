@@ -7,6 +7,23 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [1.2.0] - 2024-12-19
+
+### 🔄 Actualización de Dependencias y Mejoras
+
+#### ✨ Actualizaciones de Dependencias
+- **flutter_lints**: Actualizado de ^3.0.0 a ^6.0.0
+- **url_launcher**: Actualizado de ^6.1.11 a ^6.2.5
+- **sqflite**: Actualizado de ^2.3.0 a ^2.3.2
+- **Mejoras de seguridad** y compatibilidad
+
+#### 🛠️ Mejoras Técnicas
+- **Linting mejorado**: Nuevas reglas de análisis de código
+- **Compatibilidad**: Mejor soporte para versiones recientes de Flutter
+- **Seguridad**: Parches de seguridad en dependencias
+
+---
+
 ## [1.1.0] - 2024-12-19
 
 ### 🔄 Actualización de Navegador Web

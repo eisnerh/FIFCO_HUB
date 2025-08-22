@@ -380,9 +380,17 @@ class Shortcut {
 dependencies:
   flutter:
     sdk: flutter
-  sqflite: ^2.3.0
+  sqflite: ^2.3.2
   path: ^1.8.3
-  webview_flutter: ^4.4.2
+  webview_flutter: ^4.4.7
+  url_launcher: ^6.2.5
+  shared_preferences: ^2.2.2
+  logger: ^2.0.2+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
 ```
 
 ### Pasos de Instalación
@@ -520,8 +528,8 @@ Future<Map<String, dynamic>> exportConfiguration() async {
 ## 📞 Soporte Técnico
 
 ### Contacto
-- **Desarrollador**: Equipo de Desarrollo FIFCO
-- **Email**: desarrollo@fifco.com
+- **Desarrollador**: Eisner López Acevedo
+- **Email**: elopez21334@fifco.com
 - **Documentación**: Este archivo
 
 ### Recursos Adicionales
