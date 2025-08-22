@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/shortcut.dart';
 import '../models/category.dart';
 import '../database/database_helper.dart';
@@ -7,7 +9,7 @@ import '../screens/edit_shortcut_screen.dart';
 import '../widgets/shortcut_tile.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -22,6 +24,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final String adminPassword = "admin123";
   late TabController _tabController;
   bool isLoading = true;
+  
+  // Variables para auto-logout
+  Timer? _adminSessionTimer;
+  static const Duration _adminSessionTimeout = Duration(minutes: 3);
 
   @override
   void initState() {
@@ -37,16 +43,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           isAdminMode = true;
         });
+        // Iniciar timer de auto-logout
+        _startAdminSessionTimer();
       }
     } catch (e) {
-      print('Error checking admin session: $e');
+      debugPrint('Error checking admin session: $e');
     }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _adminSessionTimer?.cancel();
     super.dispose();
+  }
+
+  // Método para iniciar el timer de auto-logout
+  void _startAdminSessionTimer() {
+    _adminSessionTimer?.cancel();
+    _adminSessionTimer = Timer(_adminSessionTimeout, () {
+      if (mounted && isAdminMode) {
+        _autoLogout();
+      }
+    });
+  }
+
+  // Método para reiniciar el timer (llamado en cada acción administrativa)
+  void _resetAdminSessionTimer() {
+    if (isAdminMode) {
+      _startAdminSessionTimer();
+    }
+  }
+
+  // Método para auto-logout
+  void _autoLogout() {
+    setState(() {
+      isAdminMode = false;
+    });
+    
+    // Limpiar sesión de administrador
+    _dbHelper.saveSessionData('admin_mode', 'false', isTemporary: true);
+    
+    // Mostrar notificación
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Sesión de administrador cerrada por inactividad'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   Future<void> _loadData() async {
@@ -70,19 +117,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading data: $e');
+      debugPrint('Error loading data: $e');
       setState(() {
         isLoading = false;
       });
     }
   }
 
-  void _updateTabController() {
-    if (_tabController.length != categories.length + 1) {
-      _tabController.dispose();
-      _tabController = TabController(length: categories.length + 1, vsync: this);
-    }
-  }
+  // Método eliminado por no ser utilizado
 
   List<Shortcut> _getShortcutsByCategory(int? categoryId) {
     if (categoryId == null) {
@@ -124,28 +166,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           ElevatedButton(
             onPressed: () async {
+              final navigatorContext = context;
               if (passwordController.text == adminPassword) {
                 setState(() {
                   isAdminMode = true;
                 });
                 
+                // Iniciar timer de auto-logout
+                _startAdminSessionTimer();
+                
                 // Guardar sesión de administrador como temporal
                 await _dbHelper.saveSessionData('admin_mode', 'true', isTemporary: true);
                 
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Modo administrador activado'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                if (mounted) {
+                  Navigator.pop(navigatorContext);
+                  ScaffoldMessenger.of(navigatorContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Modo administrador activado'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('❌ Clave incorrecta'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(navigatorContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('❌ Clave incorrecta'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Acceder'),
@@ -161,22 +211,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
     
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
+    final navigatorContext = context;
     try {
       await _dbHelper.setDefaultShortcut(shortcutId);
       await _loadData(); // Recargar datos
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Sistema predeterminado actualizado'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(navigatorContext).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Sistema predeterminado actualizado'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(navigatorContext).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -186,8 +244,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
     
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
+    final navigatorContext = context;
     final result = await Navigator.push(
-      context,
+      navigatorContext,
       MaterialPageRoute(
         builder: (context) => EditShortcutScreen(
           shortcut: shortcut,
@@ -218,19 +280,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
         
         await _loadData(); // Recargar datos
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(shortcut != null ? '✅ Sistema actualizado' : '✅ Sistema creado'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(navigatorContext).showSnackBar(
+            SnackBar(
+              content: Text(shortcut != null ? '✅ Sistema actualizado' : '✅ Sistema creado'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(navigatorContext).showSnackBar(
+            SnackBar(
+              content: Text('❌ Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -240,6 +306,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _showAdminDialog();
       return;
     }
+    
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
     
     showDialog(
       context: context,
@@ -253,23 +322,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           ElevatedButton(
             onPressed: () async {
+              final dialogContext = context;
               try {
                 await _dbHelper.deleteShortcut(shortcutId);
                 await _loadData(); // Recargar datos
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Sistema eliminado'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                Navigator.pop(dialogContext);
+                if (mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Sistema eliminado'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('❌ Error: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -300,17 +374,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           children: [
             const Icon(Icons.admin_panel_settings, color: Color(0xFF1E3A8A)),
             const SizedBox(width: 8),
-            const Text('Panel de Administrador'),
+            Expanded(
+              child: const Text('Panel de Administrador'),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Selecciona la acción que deseas realizar:',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 20),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Selecciona la acción que deseas realizar:',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 20),
             
             // Gestión de Sistemas
             ListTile(
@@ -393,6 +470,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
+      ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -411,7 +489,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           children: [
             const Icon(Icons.add_business, color: Color(0xFF1E3A8A)),
             const SizedBox(width: 8),
-            const Text('Gestión de Sistemas'),
+            Expanded(
+              child: const Text('Gestión de Sistemas'),
+            ),
           ],
         ),
         content: Column(
@@ -445,16 +525,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             
             // Ver todos los sistemas
             ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.list, color: Colors.white, size: 20),
-              ),
               title: const Text('Ver Todos los Sistemas'),
               subtitle: Text('${shortcuts.length} sistemas disponibles'),
               onTap: () {
@@ -474,6 +544,119 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _showShortcutDetails(Shortcut shortcut) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.language, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                shortcut.name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Categoría', shortcut.categoryName, Icons.category),
+            const SizedBox(height: 12),
+            _buildDetailRow('URL', shortcut.url, Icons.link),
+            if (shortcut.isDefault) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sistema Predeterminado',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+                      ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _openWebView(shortcut.url);
+              },
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Abrir'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A8A),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF1E3A8A)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: Color(0xFF1E3A8A),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showAllSystems() {
     showDialog(
       context: context,
@@ -481,82 +664,117 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         title: const Text('Todos los Sistemas'),
         content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Total: ${shortcuts.length} sistemas',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Total: ${shortcuts.length} sistemas',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               const SizedBox(height: 16),
               ...shortcuts.map((shortcut) {
-                return ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                  child: ListTile(
+                    title: Text(
+                      shortcut.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(Icons.language, color: Colors.white, size: 16),
-                  ),
-                  title: Text(shortcut.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(shortcut.url),
-                      Text(
-                        'Categoría: ${shortcut.categoryName}',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (shortcut.isDefault)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'Pred',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Categoría: ${shortcut.categoryName}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
                           ),
                         ),
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 18),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _editShortcut(shortcut);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _deleteShortcut(shortcut.id!, shortcut.name);
-                        },
-                      ),
-                    ],
+                        if (shortcut.isDefault) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF1E3A8A), Color(0xFF0EA5E9)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Sistema Predeterminado',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'view':
+                            Navigator.pop(context);
+                            _showShortcutDetails(shortcut);
+                            break;
+                          case 'edit':
+                            Navigator.pop(context);
+                            _editShortcut(shortcut);
+                            break;
+                          case 'delete':
+                            Navigator.pop(context);
+                            _deleteShortcut(shortcut.id!, shortcut.name);
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'view',
+                          child: Row(
+                            children: [
+                              Icon(Icons.visibility, size: 18),
+                              SizedBox(width: 8),
+                              Text('Ver detalles'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 18),
+                              SizedBox(width: 8),
+                              Text('Editar'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 18, color: Colors.red),
+                              const SizedBox(width: 8),
+                              const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         ),
+      ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -568,6 +786,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _logoutAdmin() async {
+    // Cancelar timer de auto-logout
+    _adminSessionTimer?.cancel();
+    
     setState(() {
       isAdminMode = false;
     });
@@ -575,15 +796,97 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Limpiar sesión de administrador
     await _dbHelper.saveSessionData('admin_mode', 'false', isTemporary: true);
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🔒 Modo administrador desactivado'),
-        backgroundColor: Colors.orange,
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Modo administrador desactivado'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  Future<void> _closeApplication() async {
+    // Mostrar diálogo de confirmación
+    final shouldClose = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            const Text('Cerrar Aplicación'),
+          ],
+        ),
+        content: const Text(
+          '¿Estás seguro de que quieres cerrar la aplicación?\n\n'
+          'Se limpiarán todas las credenciales y datos de sesión.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cerrar'),
+          ),
+        ],
       ),
     );
+
+    if (shouldClose == true) {
+      try {
+        // Limpiar todos los datos de sesión
+        await _dbHelper.clearAllSessionData();
+        
+        // Limpiar datos de autenticación de portales
+        await _dbHelper.clearPortalAuthenticationData();
+        
+        // Limpiar todos los datos de navegación
+        await _dbHelper.clearAllNavigationData();
+        
+        // Cancelar timer de admin si está activo
+        _adminSessionTimer?.cancel();
+        
+        // Mostrar mensaje de confirmación
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🔒 Aplicación cerrada - Credenciales limpiadas'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        
+        // Cerrar la aplicación después de un breve delay
+        Future.delayed(const Duration(seconds: 2), () {
+          SystemNavigator.pop();
+        });
+        
+      } catch (e) {
+        debugPrint('❌ Error cerrando aplicación: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _resetToDefaultShortcuts() async {
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -600,23 +903,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           ElevatedButton(
             onPressed: () async {
+              final dialogContext = context;
               try {
                 await _dbHelper.resetToDefaultShortcuts();
                 await _loadData(); // Recargar datos
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Enlaces por defecto restablecidos'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                Navigator.pop(dialogContext);
+                if (mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Enlaces por defecto restablecidos'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('❌ Error: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -631,43 +939,97 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _manageCategories() async {
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Gestionar Categorías'),
         content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Categorías actuales:',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Categorías actuales:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
               const SizedBox(height: 16),
               ...categories.map((category) {
                 final systemCount = shortcuts.where((s) => s.categoryId == category.id).length;
-                return ListTile(
-                  leading: const Icon(Icons.category),
-                  title: Text(category.name),
-                  subtitle: Text('$systemCount ${systemCount == 1 ? 'sistema' : 'sistemas'}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 20),
-                        onPressed: () => _editCategory(category),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                        onPressed: systemCount > 0 
-                          ? null 
-                          : () => _deleteCategory(category),
-                      ),
-                    ],
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.category, color: Color(0xFF1E3A8A)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    category.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$systemCount ${systemCount == 1 ? 'sistema' : 'sistemas'}',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _editCategory(category),
+                              icon: const Icon(Icons.edit, size: 16),
+                              label: const Text('Editar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1E3A8A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: const Size(0, 32),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: systemCount > 0 
+                                ? null 
+                                : () => _deleteCategory(category),
+                              icon: const Icon(Icons.delete, size: 16),
+                              label: const Text('Eliminar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: systemCount > 0 ? Colors.grey : Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: const Size(0, 32),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _addCategory,
@@ -677,6 +1039,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
+      ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -688,6 +1051,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _addCategory() async {
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
     final categoryController = TextEditingController();
     
     showDialog(
@@ -723,19 +1089,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   await _dbHelper.insertCategory(newCategory);
                   await _loadData(); // Recargar datos
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Categoría "$newCategory" agregada'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('✅ Categoría "$newCategory" agregada'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ Error: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('❌ Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               }
             },
@@ -747,6 +1117,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _editCategory(Category category) async {
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
     final categoryController = TextEditingController(text: category.name);
     
     showDialog(
@@ -782,19 +1155,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   await _dbHelper.updateCategory(category.id!, newCategory);
                   await _loadData(); // Recargar datos
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Categoría actualizada a "$newCategory"'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('✅ Categoría actualizada a "$newCategory"'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ Error: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('❌ Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               }
             },
@@ -806,6 +1183,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _deleteCategory(Category category) async {
+    // Reiniciar timer de sesión administrativa
+    _resetAdminSessionTimer();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -822,19 +1202,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 await _dbHelper.deleteCategory(category.id!);
                 await _loadData(); // Recargar datos
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('✅ Categoría "${category.name}" eliminada'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Categoría "${category.name}" eliminada'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('❌ Error: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -1009,9 +1393,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+              child: const Text(
                 'Supply Chain Hub',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -1026,7 +1410,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           isScrollable: true,
           tabs: [
             const Tab(text: 'Todos'),
-            ...categories.map((category) => Tab(text: category.name)).toList(),
+            ...categories.map((category) => Tab(text: category.name)),
           ],
         ),
         actions: [
@@ -1036,6 +1420,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               onPressed: _showAdminMenu,
               tooltip: 'Menú de administrador',
             ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _closeApplication,
+            tooltip: 'Cerrar aplicación y limpiar credenciales',
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
                                onPressed: () {
@@ -1119,7 +1508,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Tab "Todos"
           _buildShortcutsList(null),
           // Tabs de categorías
-          ...categories.map((category) => _buildShortcutsList(category.id)).toList(),
+                      ...categories.map((category) => _buildShortcutsList(category.id)),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

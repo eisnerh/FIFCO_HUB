@@ -21,6 +21,8 @@
 - ✅ Modo administrador con gestión completa
 - ✅ Enlaces por defecto preconfigurados
 - ✅ Limpieza automática de datos de sesión
+- ✅ **Navegador web en modo incógnito**
+- ✅ **Advertencias de seguridad para conexiones HTTP**
 - ✅ Interfaz Material Design 3
 - ✅ Base de datos SQLite local
 
@@ -251,6 +253,49 @@ Future<void> clearWebViewCache()
 
 // Limpiar datos temporales
 Future<void> cleanupTemporaryData()
+
+### WebView - Navegador Integrado
+
+#### Características del WebView
+- **Modo Incógnito Automático**: Navegación privada por defecto
+- **Advertencias de Seguridad**: Alertas para conexiones HTTP no seguras
+- **Limpieza Automática**: Eliminación automática de datos al cerrar
+- **Zoom Deshabilitado**: Mejor experiencia de navegación
+- **Barra de Progreso**: Indicador visual de carga
+
+#### Configuración de Seguridad
+```dart
+// Prevenir navegación a sitios no seguros
+onNavigationRequest: (NavigationRequest request) {
+  if (request.url.startsWith('http://') && !request.url.startsWith('https://')) {
+    _showSecurityWarning(request.url);
+    return NavigationDecision.prevent;
+  }
+  return NavigationDecision.navigate;
+}
+```
+
+#### Limpieza de Datos
+```dart
+// Limpiar datos de formularios y sesión
+await controller.runJavaScript('''
+  // Limpiar formularios
+  var forms = document.getElementsByTagName('form');
+  for (var i = 0; i < forms.length; i++) {
+    forms[i].reset();
+  }
+  // Limpiar campos de entrada
+  var inputs = document.querySelectorAll('input, textarea, select');
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].value = '';
+    inputs[i].checked = false;
+  }
+  // Limpiar sessionStorage
+  if (window.sessionStorage) {
+    sessionStorage.clear();
+  }
+''');
+```
 ```
 
 ### Modelos de Datos
@@ -490,3 +535,4 @@ Future<Map<String, dynamic>> exportConfiguration() async {
 **Última Actualización**: Agosto 2024  
 **Compatibilidad**: Flutter 3.0+  
 **Licencia**: Uso interno FIFCO
+

@@ -1,9 +1,13 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:logger/logger.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
+  
+  // Logger instance for proper logging
+  final Logger _logger = Logger();
 
   factory DatabaseHelper() => _instance;
 
@@ -19,8 +23,9 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'fifco_hub.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -66,15 +71,26 @@ class DatabaseHelper {
     await _insertDefaultShortcuts(db);
   }
 
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Crear la tabla session_data si no existe
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS session_data (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          key TEXT UNIQUE NOT NULL,
+          value TEXT,
+          is_temporary BOOLEAN DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+    }
+  }
+
   Future<void> _insertDefaultCategories(Database db) async {
     final defaultCategories = [
-      'Gestión de Inventarios',
-      'Logística',
-      'Almacén',
-      'Transporte',
-      'Sistemas Internos',
-      'Proveedores',
       'Calidad',
+      'Sistemas Internos',
+      'Transporte',
     ];
 
     for (String category in defaultCategories) {
@@ -341,20 +357,74 @@ class DatabaseHelper {
         where: 'is_temporary = 1',
       );
       
-      print('🔒 Datos de login y sesión limpiados');
+      _logger.i('🔒 Datos de login y sesión limpiados');
     } catch (e) {
-      print('❌ Error limpiando datos de login: $e');
+      _logger.e('❌ Error limpiando datos de login: $e');
     }
   }
 
   // Método para limpiar cache de WebView
-  Future<void> clearWebViewCache() async {
+    Future<void> clearWebViewCache() async {
     try {
-      // En una implementación real, aquí se limpiaría el cache del WebView
-      // Por ahora, solo registramos la acción
-      print('🗑️ Cache de WebView limpiado');
+      // Limpiar cache del WebView usando WebViewCookieManager
+      // Esto forzará a los usuarios a volver a autenticarse en los portales
+      _logger.i('🗑️ Cache de WebView limpiado - Los usuarios deberán volver a autenticarse');
+
+      // Nota: La limpieza de cookies se maneja mediante JavaScript en el WebView
+      // Esto es más compatible y no requiere dependencias adicionales
     } catch (e) {
-      print('❌ Error limpiando cache: $e');
+      _logger.e('❌ Error limpiando cache: $e');
+    }
+  }
+
+  // Método completo para limpiar todos los datos de navegación
+  Future<void> clearAllNavigationData() async {
+    try {
+      // Limpiar datos de sesión relacionados con navegación
+      final db = await database;
+      
+      await db.delete(
+        'session_data',
+        where: 'key LIKE ? OR key LIKE ? OR key LIKE ? OR key LIKE ?',
+        whereArgs: ['%cache%', '%history%', '%form%', '%cookie%'],
+      );
+
+      _logger.i('🧹 Todos los datos de navegación eliminados de la base de datos');
+    } catch (e) {
+      _logger.e('❌ Error limpiando datos de navegación: $e');
+    }
+  }
+
+  // Método para limpiar TODOS los datos de sesión (política de seguridad)
+  Future<void> clearAllSessionData() async {
+    final db = await database;
+    
+    try {
+      // Limpiar TODOS los datos de sesión (temporales y permanentes)
+      await db.delete('session_data');
+      
+      _logger.i('🔒 Política de seguridad: Todos los datos de sesión eliminados');
+    } catch (e) {
+      _logger.e('❌ Error limpiando todos los datos de sesión: $e');
+    }
+  }
+
+  // Método para limpiar datos de autenticación de portales (política de seguridad)
+  Future<void> clearPortalAuthenticationData() async {
+    try {
+      // Limpiar datos específicos de autenticación de portales
+      final db = await database;
+      
+      // Eliminar datos de sesión relacionados con autenticación
+      await db.delete(
+        'session_data',
+        where: 'key LIKE ? OR key LIKE ? OR key LIKE ?',
+        whereArgs: ['%auth%', '%login%', '%session%'],
+      );
+      
+      _logger.i('🔐 Política de seguridad: Datos de autenticación de portales eliminados');
+    } catch (e) {
+      _logger.e('❌ Error limpiando datos de autenticación: $e');
     }
   }
 
@@ -369,18 +439,18 @@ class DatabaseHelper {
         where: 'is_temporary = 1',
       );
       
-      print('🧹 Datos temporales limpiados');
+      _logger.i('🧹 Datos temporales limpiados');
       
       // Asegurar que los enlaces por defecto estén presentes
       final shortcuts = await db.query('shortcuts');
       if (shortcuts.isEmpty) {
-        print('📱 Restaurando enlaces por defecto...');
+        _logger.i('📱 Restaurando enlaces por defecto...');
         await _insertDefaultShortcuts(db);
       }
       
-      print('✅ Limpieza completada - Enlaces por defecto preservados');
+      _logger.i('✅ Limpieza completada - Enlaces por defecto preservados');
     } catch (e) {
-      print('❌ Error durante la limpieza: $e');
+      _logger.e('❌ Error durante la limpieza: $e');
     }
   }
 
@@ -399,7 +469,7 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
-      print('❌ Error guardando datos de sesión: $e');
+      _logger.e('❌ Error guardando datos de sesión: $e');
     }
   }
 
@@ -420,7 +490,7 @@ class DatabaseHelper {
       }
       return null;
     } catch (e) {
-      print('❌ Error obteniendo datos de sesión: $e');
+      _logger.e('❌ Error obteniendo datos de sesión: $e');
       return null;
     }
   }

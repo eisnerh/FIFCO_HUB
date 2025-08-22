@@ -655,3 +655,4 @@ await dbHelper.cleanupTemporaryData();
 **Última Actualización**: Agosto 2024  
 **Compatibilidad**: Flutter 3.0+  
 **Documentación**: [DOCUMENTACION.md](./DOCUMENTACION.md)
+

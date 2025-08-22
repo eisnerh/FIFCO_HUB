@@ -11,13 +11,16 @@ dependencies:
     sdk: flutter
   shared_preferences: ^2.2.2
   webview_flutter: ^4.4.7
+  # webview_cookie_manager: ^2.0.6  # Comentado por problemas de compatibilidad
   url_launcher: ^6.1.11
   sqflite: ^2.3.0
   path: ^1.8.3
+  logger: ^2.0.2+1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true

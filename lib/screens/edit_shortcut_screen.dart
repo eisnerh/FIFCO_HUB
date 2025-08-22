@@ -7,10 +7,10 @@ class EditShortcutScreen extends StatefulWidget {
   final List<Category> categories;
   
   const EditShortcutScreen({
-    Key? key, 
+    super.key, 
     this.shortcut,
     required this.categories,
-  }) : super(key: key);
+  });
 
   @override
   State<EditShortcutScreen> createState() => _EditShortcutScreenState();
@@ -138,11 +138,13 @@ class _EditShortcutScreenState extends State<EditShortcutScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              isEditing ? 'Editar Sistema' : 'Nuevo Sistema',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            Expanded(
+              child: Text(
+                isEditing ? 'Editar Sistema' : 'Nuevo Sistema',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -174,7 +176,7 @@ class _EditShortcutScreenState extends State<EditShortcutScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(

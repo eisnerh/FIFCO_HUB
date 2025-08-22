@@ -10,14 +10,14 @@ class ShortcutTile extends StatelessWidget {
   final bool isAdminMode;
 
   const ShortcutTile({
-    Key? key,
+    super.key,
     required this.shortcut,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
     required this.onSetDefault,
     this.isAdminMode = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +96,7 @@ class ShortcutTile extends StatelessWidget {
                                            const SizedBox(width: 4),
                                            const Text(
                                              'Predeterminado',
-                                             style: TextStyle(
+                                             style: const TextStyle(
                                                fontSize: 10,
                                                fontWeight: FontWeight.w500,
                                                color: Colors.white,
@@ -110,9 +110,9 @@ class ShortcutTile extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           shortcut.url,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: Color(0xFF757575),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),

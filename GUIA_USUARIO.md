@@ -390,3 +390,4 @@ Esta aplicación está diseñada para hacer tu trabajo más eficiente y organiza
 **Última Actualización**: Agosto 2024  
 **Compatibilidad**: Android 5.0+ / iOS 11.0+  
 **Desarrollado por**: Equipo de Desarrollo FIFCO
+

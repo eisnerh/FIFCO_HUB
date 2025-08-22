@@ -7,6 +7,34 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [1.1.0] - 2024-12-19
+
+### 🔄 Actualización de Navegador Web
+
+#### ✨ Nuevas Funcionalidades
+- **Modo Incógnito Automático**: Navegación web en modo privado por defecto
+- **Advertencias de Seguridad**: Alertas para conexiones HTTP no seguras
+- **Limpieza Automática**: Eliminación automática de datos de navegación
+- **Interfaz Simplificada**: Título limpio sin indicadores de modo incógnito
+
+#### 🔧 Mejoras en WebView
+- **Navegación Segura**: Prevención automática de conexiones HTTP
+- **Limpieza de Datos**: Eliminación automática de cookies, cache y formularios
+- **Zoom Deshabilitado**: Mejor experiencia de navegación
+- **Barra de Progreso**: Indicador visual de carga de páginas
+
+#### 🛠️ Correcciones Técnicas
+- **Overflow Fixed**: Corrección de problemas de layout en AppBar
+- **Linting Errors**: Eliminación de warnings de código innecesario
+- **Performance**: Optimización de renderizado de listas
+
+#### 🎨 Cambios en UI/UX
+- **Título Simplificado**: "Navegador" en lugar de "Navegador Incógnito"
+- **Badge Removido**: Eliminación del indicador visual de modo incógnito
+- **Botones Mantenidos**: Funcionalidad de limpiar y recargar preservada
+
+---
+
 ## [1.0.0] - 2024-08-XX
 
 ### 🎉 Lanzamiento Inicial
@@ -238,3 +266,4 @@ lib/
 **Versión Actual**: 1.0.0  
 **Estado**: Release  
 **Compatibilidad**: Flutter 3.0+ / Android 5.0+ / iOS 11.0+
+
