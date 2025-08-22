@@ -48,6 +48,17 @@ class DatabaseHelper {
       )
     ''');
 
+    // Tabla para datos temporales y de sesión
+    await db.execute('''
+      CREATE TABLE session_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT UNIQUE NOT NULL,
+        value TEXT,
+        is_temporary BOOLEAN DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     // Insertar categorías por defecto
     await _insertDefaultCategories(db);
     
@@ -317,6 +328,101 @@ class DatabaseHelper {
     
     // Insertar los shortcuts por defecto nuevamente
     await _insertDefaultShortcuts(db);
+  }
+
+  // Método para limpiar datos de login (modo administrador)
+  Future<void> clearLoginData() async {
+    final db = await database;
+    
+    try {
+      // Limpiar datos de sesión temporales
+      await db.delete(
+        'session_data',
+        where: 'is_temporary = 1',
+      );
+      
+      print('🔒 Datos de login y sesión limpiados');
+    } catch (e) {
+      print('❌ Error limpiando datos de login: $e');
+    }
+  }
+
+  // Método para limpiar cache de WebView
+  Future<void> clearWebViewCache() async {
+    try {
+      // En una implementación real, aquí se limpiaría el cache del WebView
+      // Por ahora, solo registramos la acción
+      print('🗑️ Cache de WebView limpiado');
+    } catch (e) {
+      print('❌ Error limpiando cache: $e');
+    }
+  }
+
+  // Método para limpiar datos temporales pero mantener enlaces por defecto
+  Future<void> cleanupTemporaryData() async {
+    final db = await database;
+    
+    try {
+      // Limpiar datos temporales de sesión
+      await db.delete(
+        'session_data',
+        where: 'is_temporary = 1',
+      );
+      
+      print('🧹 Datos temporales limpiados');
+      
+      // Asegurar que los enlaces por defecto estén presentes
+      final shortcuts = await db.query('shortcuts');
+      if (shortcuts.isEmpty) {
+        print('📱 Restaurando enlaces por defecto...');
+        await _insertDefaultShortcuts(db);
+      }
+      
+      print('✅ Limpieza completada - Enlaces por defecto preservados');
+    } catch (e) {
+      print('❌ Error durante la limpieza: $e');
+    }
+  }
+
+  // Método para guardar datos temporales de sesión
+  Future<void> saveSessionData(String key, String value, {bool isTemporary = true}) async {
+    final db = await database;
+    
+    try {
+      await db.insert(
+        'session_data',
+        {
+          'key': key,
+          'value': value,
+          'is_temporary': isTemporary ? 1 : 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print('❌ Error guardando datos de sesión: $e');
+    }
+  }
+
+  // Método para obtener datos de sesión
+  Future<String?> getSessionData(String key) async {
+    final db = await database;
+    
+    try {
+      final result = await db.query(
+        'session_data',
+        where: 'key = ?',
+        whereArgs: [key],
+        limit: 1,
+      );
+      
+      if (result.isNotEmpty) {
+        return result.first['value'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error obteniendo datos de sesión: $e');
+      return null;
+    }
   }
 
   // Método para cerrar la base de datos

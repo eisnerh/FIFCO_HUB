@@ -1,12 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
+import 'database/database_helper.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    if (state == AppLifecycleState.paused) {
+      // La aplicación se pausa (va a segundo plano)
+      _cleanupOnAppPause();
+    } else if (state == AppLifecycleState.detached) {
+      // La aplicación se está cerrando completamente
+      _cleanupOnAppClose();
+    }
+  }
+
+  Future<void> _cleanupOnAppPause() async {
+    try {
+      // Limpiar datos temporales pero mantener enlaces por defecto
+      await _dbHelper.cleanupTemporaryData();
+      
+      print('⏸️ Limpieza de datos temporales al pausar la aplicación');
+    } catch (e) {
+      print('❌ Error durante la limpieza al pausar: $e');
+    }
+  }
+
+  Future<void> _cleanupOnAppClose() async {
+    try {
+      // Limpiar datos de login (modo administrador)
+      await _dbHelper.clearLoginData();
+      
+      // Limpiar cache de WebView
+      await _dbHelper.clearWebViewCache();
+      
+      print('🧹 Limpieza de datos completada al cerrar la aplicación');
+    } catch (e) {
+      print('❌ Error durante la limpieza: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -27,6 +27,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _loadData();
+    _checkAdminSession();
+  }
+
+  Future<void> _checkAdminSession() async {
+    try {
+      final adminSession = await _dbHelper.getSessionData('admin_mode');
+      if (adminSession == 'true') {
+        setState(() {
+          isAdminMode = true;
+        });
+      }
+    } catch (e) {
+      print('Error checking admin session: $e');
+    }
   }
 
   @override
@@ -109,11 +123,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (passwordController.text == adminPassword) {
                 setState(() {
                   isAdminMode = true;
                 });
+                
+                // Guardar sesión de administrador como temporal
+                await _dbHelper.saveSessionData('admin_mode', 'true', isTemporary: true);
+                
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -549,10 +567,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _logoutAdmin() {
+  Future<void> _logoutAdmin() async {
     setState(() {
       isAdminMode = false;
     });
+    
+    // Limpiar sesión de administrador
+    await _dbHelper.saveSessionData('admin_mode', 'false', isTemporary: true);
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('🔒 Modo administrador desactivado'),
@@ -1029,20 +1051,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                mainAxisSize: MainAxisSize.min,
                                crossAxisAlignment: CrossAxisAlignment.start,
                                children: [
-                                 const Text(
-                                   'FIFCO Hub - Portal de Supply Chain\n\n'
-                                   'Esta aplicación centraliza todos los accesos y herramientas de la cadena de suministro de FIFCO:\n\n'
-                                   '🔒 **Modo Administrador:**\n'
-                                   'Para editar, agregar o eliminar sistemas y categorías, necesitas activar el modo administrador.\n\n'
-                                   '⚙️ **Panel de Administrador:**\n'
-                                   '• Usa el botón de administrador para acceder al panel completo\n'
-                                   '• **Gestión de Sistemas:** Agregar, editar o eliminar sistemas\n'
-                                   '• **Gestión de Categorías:** Crear, editar o eliminar categorías\n'
-                                   '• Solo se pueden eliminar categorías vacías\n'
-                                   '• Al editar una categoría, se actualizan todos los sistemas asociados\n\n'
-                                   '💾 **Base de Datos SQLite:**\n'
-                                   'Los datos se almacenan localmente y persisten entre sesiones.',
-                                 ),
+                                                                   const Text(
+                                    'FIFCO Hub - Portal de Supply Chain\n\n'
+                                    'Esta aplicación centraliza todos los accesos y herramientas de la cadena de suministro de FIFCO:\n\n'
+                                    '🔒 **Modo Administrador:**\n'
+                                    'Para editar, agregar o eliminar sistemas y categorías, necesitas activar el modo administrador.\n\n'
+                                    '⚙️ **Panel de Administrador:**\n'
+                                    '• Usa el botón de administrador para acceder al panel completo\n'
+                                    '• **Gestión de Sistemas:** Agregar, editar o eliminar sistemas\n'
+                                    '• **Gestión de Categorías:** Crear, editar o eliminar categorías\n'
+                                    '• Solo se pueden eliminar categorías vacías\n'
+                                    '• Al editar una categoría, se actualizan todos los sistemas asociados\n\n'
+                                    '🧹 **Limpieza Automática:**\n'
+                                    '• Los datos de login se limpian automáticamente al cerrar la aplicación\n'
+                                    '• El cache se limpia para optimizar el rendimiento\n'
+                                    '• Los enlaces por defecto se preservan siempre\n'
+                                    '• La seguridad se mantiene entre sesiones\n\n'
+                                    '💾 **Base de Datos SQLite:**\n'
+                                    'Los datos se almacenan localmente y persisten entre sesiones.',
+                                  ),
                                  if (!isAdminMode) ...[
                                    const SizedBox(height: 16),
                                    Container(

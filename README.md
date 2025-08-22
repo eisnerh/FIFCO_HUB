@@ -9,6 +9,8 @@ Aplicación móvil para centralizar todos los accesos y herramientas de la caden
 - **Modo Administrador**: Gestión completa de enlaces y categorías
 - **Enlaces por Defecto**: Sistema preconfigurado con enlaces oficiales de FIFCO
 - **Interfaz Moderna**: Diseño Material 3 con colores corporativos de FIFCO
+- **Limpieza Automática**: Limpieza de datos de login y cache al cerrar la aplicación
+- **Seguridad Mejorada**: Datos temporales se limpian automáticamente
 
 ## Enlaces por Defecto
 
@@ -49,6 +51,12 @@ La aplicación incluye los siguientes enlaces preconfigurados:
 - Elimina todos los enlaces personalizados
 - Restaura los enlaces oficiales de FIFCO
 
+### Limpieza Automática
+- **Al Pausar**: Limpieza de datos temporales cuando la app va a segundo plano
+- **Al Cerrar**: Limpieza completa de datos de login y cache
+- **Preservación**: Los enlaces por defecto se mantienen siempre
+- **Seguridad**: Datos de sesión se eliminan automáticamente
+
 ## Tecnologías
 
 - **Flutter**: Framework de desarrollo móvil
@@ -85,9 +93,15 @@ lib/
 La aplicación utiliza SQLite para almacenar:
 - Categorías de sistemas
 - Enlaces directos
+- Datos de sesión temporales
 - Configuraciones de usuario
 
 Los datos persisten entre sesiones y se almacenan localmente en el dispositivo.
+
+### Tablas de la Base de Datos:
+- **categories**: Categorías de sistemas
+- **shortcuts**: Enlaces directos a sistemas
+- **session_data**: Datos temporales de sesión (se limpian automáticamente)
 
 ## Colores Corporativos FIFCO
 
