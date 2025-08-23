@@ -539,7 +539,7 @@ Future<Map<String, dynamic>> exportConfiguration() async {
 
 ---
 
-**Versión**: 1.0.0  
+**Versión**: 1.2.3  
 **Última Actualización**: Agosto 2024  
 **Compatibilidad**: Flutter 3.0+  
 **Licencia**: Uso interno FIFCO
