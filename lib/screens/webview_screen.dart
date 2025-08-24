@@ -96,8 +96,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   void dispose() {
-    // En modo incógnito, no necesitamos limpiar cache manualmente
-    // Los datos se eliminan automáticamente al cerrar
+    // Limpiar datos de navegación al cerrar la pantalla
+    _clearAllWebViewData();
     super.dispose();
   }
 
@@ -201,9 +201,48 @@ class _WebViewScreenState extends State<WebViewScreen> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    bool shouldPop = false;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Advertencia'),
+          ],
+        ),
+        content: Text(
+          'Si sales ahora, se perderán todos los datos de navegación. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              shouldPop = true;
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Salir'),
+          ),
+        ],
+      ),
+    );
+    return shouldPop;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
@@ -311,6 +350,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }
